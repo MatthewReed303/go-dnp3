@@ -1,5 +1,24 @@
 # go-dnp3 Releases
 
+## v1.16.0
+
+**Date:** unreleased
+**Previous release:** v1.15.0
+
+## Summary
+
+The master hands every response fragment whole to a Handler that asks for it, so that an application sees what is not point data: virtual terminal event data and data set events in unsolicited responses, and the IIN of null responses. No exported identifier changes; one is added.
+
+## Changes
+
+### Added
+
+Master (`client`):
+
+- `FragmentHandler`, an optional interface of the `Handler`: `HandleFragment(ResponseInfo, *app.Fragment)` receives every fragment of every response and unsolicited response, in order and before `HandleMeasurements`, also the fragments without measurements.
+
+---
+
 ## v1.15.0
 
 **Date:** 2026-11-14
