@@ -179,8 +179,9 @@ type AttributeSetWriteHandler interface {
 // WriteHandler is an optional interface of the [Handler] for WRITE
 // requests on objects the outstation does not handle itself: device
 // attributes (group 0) and octet strings (group 110). The outstation
-// stores a written octet string in its database before it calls
-// WriteOctetString. Errors are answered with IIN2.2 (PARAMETER_ERROR).
+// calls WriteOctetString before it stores a written octet string in its
+// database: an octet string the handler refuses is not stored and
+// produces no event. Errors are answered with IIN2.2 (PARAMETER_ERROR).
 type WriteHandler interface {
 	WriteAttribute(ctx context.Context, variation uint8, a app.Attribute) error
 	WriteOctetString(ctx context.Context, index uint32, data []byte) error

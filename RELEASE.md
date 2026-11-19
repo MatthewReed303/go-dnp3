@@ -1,5 +1,28 @@
 # go-dnp3 Releases
 
+## v1.15.1
+
+**Date:** unreleased
+**Previous release:** v1.15.0
+
+## Summary
+
+The outstation asks a `WriteHandler` about a written octet string before it stores it, so that one the application refuses leaves the point and the event buffers as they were. No exported identifier changes.
+
+## Upgrading
+
+- **`WriteOctetString` is called before the octet string is stored.** A handler that read the written value back from the database inside `WriteOctetString` now reads the value from before the WRITE: use its `data` argument.
+
+## Changes
+
+### Fixed
+
+Outstation (`server`):
+
+- A WRITE of an octet string that `WriteHandler.WriteOctetString` refuses is answered with IIN2.2 (PARAMETER_ERROR) and is neither stored nor reported as an event; before, the point took the refused value and an octet string event was queued. A WRITE of an octet string point that does not exist is answered with IIN2.2 without calling the handler.
+
+---
+
 ## v1.15.0
 
 **Date:** 2026-11-14
