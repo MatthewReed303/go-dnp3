@@ -5,7 +5,9 @@ package client
 import (
 	"slices"
 	"sync"
+	"sync/atomic"
 	"testing"
+	"testing/synctest"
 	"time"
 
 	"github.com/otfabric/go-dnp3/app"
@@ -43,14 +45,19 @@ func (r *fragRecorder) HandleMeasurements(info ResponseInfo, _ []Measurement) {
 	r.mu.Lock()
 	r.calls = append(r.calls, "M")
 	r.mu.Unlock()
+	select {
+	case r.signal <- struct{}{}:
+	default:
+	}
 }
 
+// wait waits for n calls, of either method.
 func (r *fragRecorder) wait(t *testing.T, n int) ([]string, []*app.Fragment, []ResponseInfo) {
 	t.Helper()
 	deadline := time.After(3 * time.Second)
 	for {
 		r.mu.Lock()
-		if len(r.frags) >= n {
+		if len(r.calls) >= n {
 			defer r.mu.Unlock()
 			return slices.Clone(r.calls), slices.Clone(r.frags), slices.Clone(r.infos)
 		}
@@ -58,7 +65,7 @@ func (r *fragRecorder) wait(t *testing.T, n int) ([]string, []*app.Fragment, []R
 		select {
 		case <-r.signal:
 		case <-deadline:
-			t.Fatalf("timed out waiting for %d fragments", n)
+			t.Fatalf("timed out waiting for %d calls", n)
 		}
 	}
 }
@@ -75,11 +82,7 @@ func TestFragmentHandler(t *testing.T) {
 	o.push(t, uns(true, true, true, 1, app.IINDeviceTrouble))
 	o.push(t, uns(true, true, true, 2, 0, vt))
 	o.push(t, uns(true, true, true, 3, 0, event0))
-	_, frags, infos := rec.wait(t, 3)
-	time.Sleep(50 * time.Millisecond) // the third fragment's measurements follow it
-	rec.mu.Lock()
-	calls := slices.Clone(rec.calls)
-	rec.mu.Unlock()
+	calls, frags, infos := rec.wait(t, 4)
 	if want := []string{"F", "F", "F", "M"}; !slices.Equal(calls, want) {
 		t.Fatalf("calls %v, want %v", calls, want)
 	}
@@ -96,4 +99,59 @@ func TestFragmentHandler(t *testing.T) {
 	if infos[2].Seq != 3 || !infos[2].FIR || !infos[2].FIN {
 		t.Fatalf("info of the third fragment: %+v", infos[2])
 	}
+}
+
+// panicky is a FragmentHandler whose first HandleFragment panics.
+type panicky struct {
+	frags, measurements atomic.Int64
+}
+
+func (p *panicky) HandleFragment(ResponseInfo, *app.Fragment) {
+	if p.frags.Add(1) == 1 {
+		panic("fragment handler of the application")
+	}
+}
+
+func (p *panicky) HandleMeasurements(ResponseInfo, []Measurement) { p.measurements.Add(1) }
+
+// TestFragmentHandlerPanicRecovered: a panic in HandleFragment is recovered
+// like one in HandleMeasurements: that fragment's measurements are lost, the
+// next fragment is delivered whole and with its measurements.
+func TestFragmentHandlerPanicRecovered(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		h := &panicky{}
+		c, o := pipeClient(t, nil, WithHandler(h))
+		o.send(unsolicitedNo(0, 0))
+		o.send(unsolicitedNo(1, 0))
+		synctest.Wait()
+		if f, m := h.frags.Load(), h.measurements.Load(); f != 2 || m != 1 {
+			t.Errorf("%d fragments and %d measurement calls, want 2 and 1", f, m)
+		}
+		if _, err := c.Read(t.Context(), app.AllObjects(app.G1V0)); err != nil {
+			t.Fatalf("READ after the panic: %v", err)
+		}
+	})
+}
+
+// measurementsOnly is a Handler without HandleFragment.
+type measurementsOnly struct{ calls atomic.Int64 }
+
+func (m *measurementsOnly) HandleMeasurements(ResponseInfo, []Measurement) { m.calls.Add(1) }
+
+// TestHandlerWithoutFragmentHandler: a Handler that is not a
+// FragmentHandler is called as before, only for fragments with
+// measurements: not for a null response.
+func TestHandlerWithoutFragmentHandler(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		h := &measurementsOnly{}
+		_, o := pipeClient(t, nil, WithHandler(h))
+		null := unsolicitedNo(0, app.IINDeviceTrouble)
+		null.Headers = nil
+		o.send(null)
+		o.send(unsolicitedNo(1, 0))
+		synctest.Wait()
+		if n := h.calls.Load(); n != 1 {
+			t.Errorf("HandleMeasurements called %d times, want 1", n)
+		}
+	})
 }
