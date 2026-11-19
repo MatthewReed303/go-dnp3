@@ -1,13 +1,13 @@
 # go-dnp3 Releases
 
-## v1.15.1
+## v1.16.0
 
-**Date:** unreleased
+**Date:** 2026-11-19
 **Previous release:** v1.15.0
 
 ## Summary
 
-The outstation asks a `WriteHandler` about a written octet string before it stores it, so that one the application refuses leaves the point and the event buffers as they were. No exported identifier changes.
+The outstation asks a `WriteHandler` about a written octet string before it stores it, so that one the application refuses leaves the point and the event buffers as they were (IEEE 1815-2012 4.5.11). Contributed by @MatthewReed303.
 
 ## Upgrading
 

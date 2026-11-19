@@ -80,3 +80,39 @@ func TestOctetStringWriteHandlerDecidesFirst(t *testing.T) {
 		t.Fatalf("the handler was asked %q", g.seen)
 	}
 }
+
+// octetRemover is a handler whose WriteOctetString accepts the octet
+// string and removes its point, as the application may do meanwhile.
+type octetRemover struct {
+	NopHandler
+	db *Database
+}
+
+func (r *octetRemover) WriteAttribute(context.Context, uint8, app.Attribute) error { return nil }
+
+func (r *octetRemover) WriteOctetString(_ context.Context, index uint32, _ []byte) error {
+	r.db.Remove(OctetString, index)
+	return nil
+}
+
+// TestOctetStringWritePointRemoved: a point removed while WriteOctetString
+// runs cannot store the octet string: the WRITE is answered with IIN2.2
+// (IEEE 1815-2012 4.5.11) and no event is made.
+func TestOctetStringWritePointRemoved(t *testing.T) {
+	r := &octetRemover{}
+	m := newMaster(t, WithHandler(r))
+	r.db = m.srv.Database()
+	if err := r.db.Add(OctetString, 0, PointConfig{Class: 1}, app.OctetString{Data: []byte("ok")}); err != nil {
+		t.Fatal(err)
+	}
+	m.send(req(1, app.FuncWrite, app.Ranged(app.GV(110, 3), 0, app.OctetString{Data: []byte("new")})))
+	if f := m.recvFunc(app.FuncResponse); !f.IIN.Has(app.IINParameterError) {
+		t.Fatalf("a write of a point removed meanwhile: %v", f)
+	}
+	if _, ok := r.db.Get(OctetString, 0); ok {
+		t.Fatal("the removed point is back")
+	}
+	if n := octetEvents(t, m, 2); n != 0 {
+		t.Fatalf("a write of a removed point made %d events", n)
+	}
+}
