@@ -1314,4 +1314,4 @@ type WriteHandler interface {
 }
 ```
 
-WriteHandler is an optional interface of the [Handler](#type-handler) for WRITE requests on objects the outstation does not handle itself: device attributes (group 0) and octet strings (group 110). The outstation stores a written octet string in its database before it calls WriteOctetString. Errors are answered with IIN2.2 (PARAMETER\_ERROR).
+WriteHandler is an optional interface of the [Handler](#type-handler) for WRITE requests on objects the outstation does not handle itself: device attributes (group 0) and octet strings (group 110). The outstation calls WriteOctetString before it stores a written octet string in its database: an octet string the handler refuses is not stored and produces no event. Errors are answered with IIN2.2 (PARAMETER\_ERROR).

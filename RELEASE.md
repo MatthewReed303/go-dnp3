@@ -7,7 +7,11 @@
 
 ## Summary
 
-The master hands every response fragment whole to a Handler that asks for it, so that an application sees what is not point data: virtual terminal event data and data set events in unsolicited responses, and the IIN of null responses. No exported identifier changes; one is added.
+The master hands every response fragment whole to a Handler that asks for it, so that an application sees what is not point data: virtual terminal event data and data set events in unsolicited responses, and the IIN of null responses. The outstation asks a `WriteHandler` about a written octet string before it stores it, so that one the application refuses leaves the point and the event buffers as they were. No exported identifier changes; one is added.
+
+## Upgrading
+
+- **`WriteOctetString` is called before the octet string is stored.** A handler that read the written value back from the database inside `WriteOctetString` now reads the value from before the WRITE: use its `data` argument.
 
 ## Changes
 
@@ -16,6 +20,12 @@ The master hands every response fragment whole to a Handler that asks for it, so
 Master (`client`):
 
 - `FragmentHandler`, an optional interface of the `Handler`: `HandleFragment(ResponseInfo, *app.Fragment)` receives every fragment of every response and unsolicited response, in order and before `HandleMeasurements`, also the fragments without measurements.
+
+### Fixed
+
+Outstation (`server`):
+
+- A WRITE of an octet string that `WriteHandler.WriteOctetString` refuses is answered with IIN2.2 (PARAMETER_ERROR) and is neither stored nor reported as an event; before, the point took the refused value and an octet string event was queued. A WRITE of an octet string point that does not exist is answered with IIN2.2 without calling the handler.
 
 ---
 

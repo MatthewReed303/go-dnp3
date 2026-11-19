@@ -220,14 +220,20 @@ func (a *association) write(req *app.Fragment) *response {
 						r.iin |= app.IINParameterError
 						continue
 					}
-					if err := a.srv.db.Update(OctetString, o.Index, s, EventOnChange); err != nil {
+					if _, exists := a.srv.db.Get(OctetString, o.Index); !exists {
 						r.iin |= app.IINParameterError
 						continue
 					}
+					// The handler decides first: an octet string it refuses is
+					// answered with IIN2.2 and leaves the point as it was.
 					if wh != nil {
 						if err := wh.WriteOctetString(ctx, o.Index, s.Data); err != nil {
 							r.iin |= app.IINParameterError
+							continue
 						}
+					}
+					if err := a.srv.db.Update(OctetString, o.Index, s, EventOnChange); err != nil {
+						r.iin |= app.IINParameterError
 					}
 				}
 			case 70:

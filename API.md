@@ -262,7 +262,7 @@ is served as 100 ms); the variable `DefaultCritical`. `Class` is an event class
 | `TimeHandler` | Every time synchronization |
 | `ApplicationHandler` | INITIALIZE_DATA, the application functions, SAVE_CONFIG, ACTIVATE_CONFIG; returns IIN2 bits only |
 | `ActivateConfigHandler` | ACTIVATE_CONFIG, instead of `ApplicationHandler`: `ActivateConfig(ctx, headers)` returns an `app.ActivateConfigStatus` and IIN2 bits; without an error bit the response carries the status in one g91v1 object, qualifier 0x07 |
-| `WriteHandler` | WRITE of device attributes of set 0 and octet strings |
+| `WriteHandler` | WRITE of device attributes of set 0 and octet strings; an octet string is stored only when `WriteOctetString` accepts it |
 | `AttributeSetWriteHandler` | WRITE of a writable attribute of a `WithAttributeSet` set, before it is stored |
 
 `NopHandler`, `HandlerFunc`; `Command{GV, Index, Value, Master}`;
